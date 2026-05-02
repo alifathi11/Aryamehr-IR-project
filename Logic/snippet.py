@@ -36,8 +36,27 @@ class Snippet:
             final_snippet (str): The formatted snippet with '***' highlighting and '...' separators.
             not_exist_words (list): The list of words from the query that were not found in the document.
         """
-        #TODO
-        pass 
+        doc_tokens = raw_doc.split()
+
+        normalized_cache = [
+            self.normalize(word.strip(string.punctuation).lower())
+            for word in doc_tokens
+        ]
+
+        query_tokens = self.remove_stopword(query)
+        normalized_query = [self.normalize(w.strip(string.punctuation).lower()) for w in query_tokens]
+        query_set = set(normalized_query)
+
+        doc_set = set(normalized_cache)
+        not_exist_words = [w for w in normalized_query if w not in doc_set]
+
+        windows = self._identify_best_windows(doc_tokens, normalized_cache, query_set)
+
+        merged = self._merge_windows(windows)
+
+        snippet = self._create_snippet_text(doc_tokens, normalized_cache, merged, query_set)
+
+        return snippet, not_exist_words
 
     def _identify_best_windows(self, doc_tokens: list, normalized_cache: list, query_set: set) -> List[Tuple[int, int]]:
         """
@@ -51,8 +70,32 @@ class Snippet:
         Returns:
             list: A list of (start_index, end_index) for the best windows found.
         """
-        #TODO
-        pass
+        windows = []
+
+        n = len(doc_tokens)
+        half = self.number_of_words_on_each_side
+
+        best_score = 0
+
+        for i in range(n):
+            if normalized_cache[i] not in query_set:
+                continue
+
+            start = max(0, i - half)
+            end = min(n - 1, i + half)
+
+            score = sum(
+                1 for j in range(start, end + 1) 
+                if normalized_cache[j] in query_set
+            )
+
+            if score > best_score:
+                best_score = score
+                windows = [(start, end)]
+            elif score == best_score:
+                windows.append((start, end))
+        
+        return windows
 
     def _merge_windows(self, windows: List[Tuple[int, int]]) -> List[Tuple[int, int]]:
         """
@@ -67,8 +110,18 @@ class Snippet:
         if not windows:
             return []
             
-        #TODO
-        pass
+        windows.sort()
+        merged = [windows[0]]
+
+        for start, end in windows[1:]:
+            last_start, last_end = merged[-1]
+
+            if start <= last_end + 1:
+                merged[-1] = (last_start, max(last_end, end))
+            else:
+                merged.append((start, end))
+
+        return merged
 
     def _create_snippet_text(self, doc_tokens: list, normalized_cache: list, 
                              merged_windows: List[Tuple[int, int]], query_set: set) -> str:
@@ -86,5 +139,18 @@ class Snippet:
                 example: "The ***wizard*** went to ***Hogwarts.*** The ***wizard*** loved magic."
 
         """
-        #TODO
-        pass
+        parts = []
+
+        for idx, (start, end) in enumerate(merged_windows):
+            if idx > 0:
+                parts.append("...")
+            
+            for i in range(start, end + 1):
+                word = doc_tokens[i]
+
+                if normalized_cache[i] in query_set:
+                    parts.append(f"***{word}***")
+                else:
+                    parts.append(word)
+
+        return " ".join(parts)

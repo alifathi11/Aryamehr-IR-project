@@ -146,7 +146,7 @@ class SpellCorrection:
             score = self.jaccard_score(word_k_grams, other_k_grams)
 
             # TODO: shouldn't be hardcoded!
-            if score >= 0.7: 
+            if score >= 0.8: 
                 nearest_word_scores[other] = score
 
         nearest_words = sorted(
@@ -174,7 +174,7 @@ class SpellCorrection:
         """
         word = word.lower()
         word_tf = self.word_counter.get(word, 0)
-        return word_tf < 100 # TODO: shouldn't be hardcoded!
+        return word_tf < 5 # TODO: shouldn't be hardcoded!
 
     def spell_check(self, query):
         """

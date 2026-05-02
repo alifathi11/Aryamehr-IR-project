@@ -185,7 +185,7 @@ class SearchEngine:
                     self.metadata_index["document_count"]
                 )
                 
-                if method.lower() == "bm25":
+                if method.lower() == "okapibm25":
                     avg_len = self._get_average_length(field)
 
                     partial_scores = scorer.compute_scores_with_okapi_bm25(
@@ -238,7 +238,7 @@ class SearchEngine:
                 self.metadata_index["document_count"]
             )
 
-            if method.lower() == "bm25":
+            if method.lower() == "okapibm25":
                 avg_len = self._get_average_length(field)
 
                 field_scores = scorer.compute_scores_with_okapi_bm25(
