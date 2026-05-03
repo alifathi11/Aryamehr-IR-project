@@ -3,7 +3,7 @@ from Logic.indexer.indexes_enum import Indexes, Index_types
 import json
 
 class Metadata_index:
-    def __init__(self, path='index/'):
+    def __init__(self, path='indexes/'):
         """
         Initializes the Metadata_index.
 
@@ -12,18 +12,18 @@ class Metadata_index:
         path : str
             The path to the indexes.
         """
-        
-        #TODO
-        pass
+        self.documents = self.read_documents(path)
+        self.metadata_index = self.create_metadata_index()
+        self.store_metadata_index(path)
 
     def read_documents(self, path):
         """
         Reads the documents.
-        
         """
-        #TODO
-        pass
-
+        return Index_reader(
+            path=path,
+            index_name=Indexes.DOCUMENTS
+        ).index
 
     def create_metadata_index(self):    
         """
@@ -39,7 +39,7 @@ class Metadata_index:
 
         return metadata_index
     
-    def get_average_document_field_length(self,where):
+    def get_average_document_field_length(self, where):
         """
         Returns the sum of the field lengths of all documents in the index.
 
@@ -48,10 +48,15 @@ class Metadata_index:
         where : str
             The field to get the document lengths for.
         """
+        
+        total_length = 0
+        doc_count = len(self.documents)
 
-        ans = 0
-        #TODO
+        for _, doc in self.documents.items():
+            field_index = doc.get(where, [])
+            total_length += len(field_index)
 
+        return total_length / doc_count
 
     def store_metadata_index(self, path):
         """
@@ -62,11 +67,10 @@ class Metadata_index:
         path : str
             The path to the directory where the indexes are stored.
         """
-        path =  path + Indexes.DOCUMENTS.value + '_' + Index_types.METADATA.value + '_index.json'
+        path = path + Indexes.DOCUMENTS.value + '_' + Index_types.METADATA.value + '_index.json'
         with open(path, 'w') as file:
             json.dump(self.metadata_index, file, indent=4)
 
-
     
 if __name__ == "__main__":
-    meta_index = Metadata_index('../../indexes/')
+    meta_index = Metadata_index('indexes/')

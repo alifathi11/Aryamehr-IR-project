@@ -4,7 +4,7 @@ import json
 
 
 class Tiered_index:
-    def __init__(self, path="index/"):
+    def __init__(self, path="indexes/"):
         """
         Initializes the Tiered_index.
 
@@ -19,11 +19,12 @@ class Tiered_index:
             Indexes.GENRES: Index_reader(path, index_name=Indexes.GENRES).index,
             Indexes.DESCRIPTIONS: Index_reader(path, index_name=Indexes.DESCRIPTIONS).index,
         }
+        # TODO: should not be hardcoded!
         # feel free to change the thresholds
-        self.tiered_index = {
-            Indexes.CHARACTERS: self.convert_to_tiered_index(3, 2, Indexes.CHARACTERS),
-            Indexes.DESCRIPTIONS: self.convert_to_tiered_index(10, 5, Indexes.DESCRIPTIONS),
-            Indexes.GENRES: self.convert_to_tiered_index(1, 0, Indexes.GENRES)
+        self.tiered_index = { 
+            Indexes.CHARACTERS: self.convert_to_tiered_index(1, 0, Indexes.CHARACTERS),
+            Indexes.DESCRIPTIONS: self.convert_to_tiered_index(12, 6, Indexes.DESCRIPTIONS),
+            Indexes.GENRES: self.convert_to_tiered_index(4, 2, Indexes.GENRES)
         }
         self.store_tiered_index(path, Indexes.CHARACTERS)
         self.store_tiered_index(path, Indexes.DESCRIPTIONS)
@@ -61,7 +62,24 @@ class Tiered_index:
         first_tier = {}
         second_tier = {}
         third_tier = {}
-        #TODO
+
+        for term, postings in current_index.items(): 
+
+            first_tier[term] = {}
+            second_tier[term] = {}
+            third_tier[term] = {}
+
+            for doc_id, tf in postings.items():
+
+                if tf >= first_tier_threshold:
+                    first_tier[term][doc_id] = tf
+
+                elif tf >= second_tier_threshold:
+                    second_tier[term][doc_id] = tf
+
+                else: 
+                    third_tier[term][doc_id] = tf
+
         return {
             "first_tier": first_tier,
             "second_tier": second_tier,
@@ -79,5 +97,5 @@ class Tiered_index:
 
 if __name__ == "__main__":
     tiered = Tiered_index(
-        path="../../indexes/"
+        path="indexes/"
     )
