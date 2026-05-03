@@ -1,7 +1,7 @@
 import numpy as np
 import itertools
 import random
-
+import hashlib
 
 class MinHashLSH:
     def __init__(self, documents, num_hashes):
@@ -35,7 +35,15 @@ class MinHashLSH:
             A set of shingles.
         """
         shingles = set()
-        #TODO
+        
+        words = document.split()
+        words_count = len(words)
+
+        for i in range(words_count - k + 1):
+            shingle = tuple(words[i:i + k])
+            shingles.add(shingle)
+
+        return shingles
 
     def build_characteristic_matrix(self):
         """
@@ -46,9 +54,25 @@ class MinHashLSH:
         numpy.ndarray
             The binary characteristic matrix.
         """
-        #TODO
-        pass
+        doc_shingles = [self.shingle_document(doc) for doc in self.documents]
+        
+        all_shingles = sorted(set().union(*doc_shingles))
+        self.all_shingles = all_shingles
 
+        rows = len(all_shingles)
+        cols = len(self.documents)
+
+        characteristics_matrix = np.zeros((rows, cols), dtype=int)
+
+        shingle_to_row_map = {sh: i for i, sh in enumerate(all_shingles)}
+
+        for col, shingles in enumerate(doc_shingles):
+            for sh in shingles:
+                row = shingle_to_row_map[sh]
+                characteristics_matrix[row, col] = 1
+
+        return characteristics_matrix
+    
     def min_hash_signature(self):
         """
         Perform Min-Hashing to generate hash signatures for documents.
@@ -58,8 +82,22 @@ class MinHashLSH:
         numpy.ndarray
             The Min-Hash signatures matrix.
         """
-        #TODO
-        pass
+        characteristic_matrix = self.build_characteristic_matrix()
+
+        num_rows, num_docs = characteristic_matrix.shape
+
+        signature = np.full((self.num_hashes, num_docs), np.inf)
+
+        for h in range(self.num_hashes):
+            perm = np.random.permutation(num_rows)
+
+            for doc in range(num_docs):
+                for row_idx in perm:
+                    if characteristic_matrix[row_idx, doc] == 1:
+                        signature[h, doc] = row_idx
+                        break
+
+        return signature.astype(int)
 
     def lsh_buckets(self, signature, bands=10, rows_per_band=10):
         """
@@ -79,8 +117,30 @@ class MinHashLSH:
         dict
             A dictionary mapping bucket IDs to lists of document indices.
         """
-        #TODO
-        pass
+        num_hashes, num_docs = signature.shape
+
+        if bands * rows_per_band > num_hashes:
+            raise ValueError("bands * rows_per_band is greater than signature rows")
+    
+        buckets = {}
+
+        for band in range(bands):
+            start = band * rows_per_band
+            end = start + rows_per_band
+
+            for doc_id in range(num_docs):
+                band_slice = tuple(signature[start:end, doc_id])
+                bucket_id = (
+                    band,
+                    int(hashlib.md5(str(band_slice).encode()).hexdigest(), 16)
+                )
+
+                if bucket_id not in buckets:
+                    buckets[bucket_id] = []
+                
+                buckets[bucket_id].append(doc_id)
+        
+        return buckets
 
     def perform_lsh(self):
         """
@@ -112,8 +172,14 @@ class MinHashLSH:
         float
             Jaccard score.
         """
-        #TODO
-        pass
+        union = first_set | second_set
+
+        if len(union) == 0: 
+            return 0.0
+    
+        intersection = first_set & second_set
+
+        return len(intersection) / len(union)
 
     def jaccard_similarity_test(self, buckets, all_documents):
         """
@@ -163,13 +229,28 @@ class MinHashLSH:
         # a good score is around 0.8
         print("your final score in near duplicate detection:", correct_near_duplicates / all_near_duplicates)
 
-
-
 def main():
-    pass
-    #TODO perform tests
-
-
     
+    documents = [
+        "the cat sat on the mat",
+        "the cat sat on mat",
+        "machine learning is fun",
+        "machine learning is very fun",
+        "the dog barked loudly",
+        "the cat sat on the mat"
+    ]
+
+    lsh = MinHashLSH(documents, num_hashes=100)
+
+    buckets = lsh.perform_lsh()
+
+    print("Buckets with collisions:")
+    for k, v in buckets.items():
+        if len(set(v)) > 1:
+            print(k, v)
+
+    lsh.jaccard_similarity_test(buckets, documents)
+
+
 if __name__ == '__main__':
     main()
