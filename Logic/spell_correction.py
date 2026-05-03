@@ -1,8 +1,15 @@
 import pickle
 import os
 
+from Logic.preprocess import Preprocessor
+
 class SpellCorrection:
-    def __init__(self, all_documents=None, load_path=None, save_path=None):
+    def __init__(
+            self,
+            all_documents=None, 
+            load_path=None, 
+            save_path=None
+        ):
         """
         Initialize the SpellCorrection
 
@@ -15,6 +22,14 @@ class SpellCorrection:
         save_path : str, optional
             Path to save computed data to.
         """
+        # TODO: should not be hardcoded!
+        self.k = 2
+        self.min_freq = 5
+        self.similarity_threshold = 0.3
+        self.max_candidates = 5
+
+        self.preprocessor = Preprocessor()
+
         if load_path and os.path.exists(load_path):
             self.load(load_path)
         elif all_documents is not None:
@@ -25,7 +40,7 @@ class SpellCorrection:
             self.all_k_gram_words = {}
             self.word_counter = {}
 
-    def k_gram_word(self, word, k=2):
+    def k_gram_word(self, word):
         """
         Convert a word into a set of k-grams.
 
@@ -41,9 +56,12 @@ class SpellCorrection:
         set
             A set of k-grams.
         """
+        if len(word) < self.k:
+            return {word}
+        
         k_grams = set()
-        for idx in range(len(word) - k + 1):
-            k_grams.add(word[idx:idx + k])
+        for idx in range(len(word) - self.k + 1):
+            k_grams.add(word[idx:idx + self.k])
 
         return k_grams
 
@@ -91,6 +109,8 @@ class SpellCorrection:
         word_counter = {}
 
         for doc in all_documents:
+            doc = self.preprocessor.preprocess_text(doc)
+
             words = doc.split()
 
             for word in words: 
@@ -135,32 +155,33 @@ class SpellCorrection:
         list of str
             5 nearest words.
         """
-        nearest_word_scores = {}
+        word = word.lower()
+        target_k_grams = self.k_gram_word(word)
 
-        word_k_grams = self.k_gram_word(word)
+        scored_candidates = []
 
-        for other, other_k_grams in self.all_k_gram_words.items():
-            if other == word:
+        for candidate, candidate_k_grams in self.all_k_gram_words.items():
+
+            if candidate == word:
                 continue
+            score = self.jaccard_score(target_k_grams, candidate_k_grams)
 
-            score = self.jaccard_score(word_k_grams, other_k_grams)
+            if score >= self.similarity_threshold:
+                freq = self.word_counter.get(candidate, 0)
 
-            # TODO: shouldn't be hardcoded!
-            if score >= 0.8: 
-                nearest_word_scores[other] = score
+                scored_candidates.append((candidate, score, freq))
 
-        nearest_words = sorted(
-            nearest_word_scores,
-            key=nearest_word_scores.get,
+        scored_candidates.sort(
+            key=lambda x: (x[1], x[2]),
             reverse=True
-        )[:5]
+        )        
 
-        return nearest_words
+        return [candidate for candidate, _, _ in scored_candidates[:self.max_candidates]]
     
     def is_misspelled_word(self, word):
         """
         Check the term frequency of the word 
-        and decide weather the word is misspelled or not
+        and decide whether the word is misspelled or not
 
         Parameters
         ----------
@@ -173,9 +194,13 @@ class SpellCorrection:
             False: correct
         """
         word = word.lower()
-        word_tf = self.word_counter.get(word, 0)
-        return word_tf < 5 # TODO: shouldn't be hardcoded!
 
+        if word not in self.word_counter: 
+            return True
+        
+        word_tf = self.word_counter.get(word, 0)
+        return word_tf < self.min_freq
+    
     def spell_check(self, query):
         """
         Find correct form of a misspelled query.
@@ -192,7 +217,13 @@ class SpellCorrection:
         """
         corrected_query_words = []
 
-        for word in query.lower().split():
+        query = self.preprocessor.preprocess_text(
+            query, 
+            remove_stop_words=False,
+            apply_normalization=False
+        )
+
+        for word in query.split():
 
             if self.is_misspelled_word(word):
 

@@ -23,7 +23,12 @@ class Preprocessor:
                 if word:
                     self.stopwords.add(word)
 
-    def preprocess_text(self, text: str) -> str:
+    def preprocess_text(
+            self, 
+            text: str, 
+            remove_stop_words=True,
+            apply_normalization=True
+        ) -> str:
         """
         Apply preprocessing pipeline to a single text document.
         """
@@ -40,8 +45,13 @@ class Preprocessor:
 
         text = re.sub(r'\s+', ' ', text).strip()
 
-        tokens = self.remove_stopwords(text)
-        tokens = [self.normalize(token) for token in tokens if token]
+        tokens = text.split()
+
+        if remove_stop_words:
+            tokens = self.remove_stopwords(text)
+
+        if apply_normalization:
+            tokens = [self.normalize(token) for token in tokens]
 
         return ' '.join(tokens)
 
@@ -146,7 +156,7 @@ def csv_to_json(csv_file_path, json_file_path):
                 "description": row.get("description", ""),
                 "genres": [
                     x.strip() for x in row.get("genres", "").split(',')
-                    if x.strip
+                    if x.strip()
                 ],
                 "characters": [
                     x.strip() for x in row.get("characters", "").split(',')

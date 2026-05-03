@@ -183,7 +183,8 @@ def main():
 
         corrected_query = spell_correction_tool.spell_check(search_term)
 
-        if corrected_query != search_term:
+        # I have changed this line and added lower() to both sides
+        if corrected_query.lower() != search_term.lower(): 
             st.warning(f"Did you mean: **{corrected_query}**?")
             search_term = corrected_query
 
