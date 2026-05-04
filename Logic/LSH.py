@@ -2,6 +2,7 @@ import numpy as np
 import itertools
 import random
 import hashlib
+import json
 
 class MinHashLSH:
     def __init__(self, documents, num_hashes):
@@ -230,15 +231,30 @@ class MinHashLSH:
         print("your final score in near duplicate detection:", correct_near_duplicates / all_near_duplicates)
 
 def main():
-    
-    documents = [
-        "the cat sat on the mat",
-        "the cat sat on mat",
-        "machine learning is fun",
-        "machine learning is very fun",
-        "the dog barked loudly",
-        "the cat sat on the mat"
-    ]
+
+    test_documents_path = "./Logic/LSHFakeData.json"
+
+    with open(test_documents_path, "r", encoding="utf-8") as f:
+        json_documents = json.load(f)
+
+    documents = []
+    for json_document in json_documents:
+
+        doc_data = ""
+
+        for field, data in json_document.items():
+
+            doc_data += field + ": "
+
+            if isinstance(data, str):
+                doc_data += data
+                
+            elif isinstance(data, list):
+                doc_data += ' '.join(data)
+
+            doc_data += "\n"
+
+        documents.append(doc_data)
 
     lsh = MinHashLSH(documents, num_hashes=100)
 
