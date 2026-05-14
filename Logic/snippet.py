@@ -36,15 +36,19 @@ class Snippet:
             final_snippet (str): The formatted snippet with '***' highlighting and '...' separators.
             not_exist_words (list): The list of words from the query that were not found in the document.
         """
-        doc_tokens = raw_doc.split()
+        punctuation_table = str.maketrans('', '', string.punctuation)
 
+        doc_tokens = raw_doc.split()
         normalized_cache = [
-            self.normalize(word.strip(string.punctuation).lower())
+            self.normalize(word.lower().translate(punctuation_table))
             for word in doc_tokens
         ]
 
-        query_tokens = self.remove_stopword(query)
-        normalized_query = [self.normalize(w.strip(string.punctuation).lower()) for w in query_tokens]
+        query_tokens = self.remove_stopword(query.split())
+        normalized_query = [
+            self.normalize(w.lower().translate(punctuation_table)) 
+            for w in query_tokens
+        ]
         query_set = set(normalized_query)
 
         doc_set = set(normalized_cache)
@@ -75,8 +79,6 @@ class Snippet:
         n = len(doc_tokens)
         half = self.number_of_words_on_each_side
 
-        best_score = 0
-
         for i in range(n):
             if normalized_cache[i] not in query_set:
                 continue
@@ -84,16 +86,7 @@ class Snippet:
             start = max(0, i - half)
             end = min(n - 1, i + half)
 
-            score = sum(
-                1 for j in range(start, end + 1) 
-                if normalized_cache[j] in query_set
-            )
-
-            if score > best_score:
-                best_score = score
-                windows = [(start, end)]
-            elif score == best_score:
-                windows.append((start, end))
+            windows.append((start, end))
         
         return windows
 

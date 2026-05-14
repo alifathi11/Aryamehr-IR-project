@@ -1,7 +1,6 @@
 from Logic.preprocess import Preprocessor
 from Logic.Scorer import Scorer
-from Logic.indexer import Indexes, Index_types, Index_reader
-
+from Logic.indexer import Indexes, Index_types, IndexReader
 
 class SearchEngine:
     def __init__(self, path="indexes/"):
@@ -9,18 +8,18 @@ class SearchEngine:
         Initializes the search engine based on your indexing structure.
         """
         self.path = path
-        self.fields = [Indexes.CHARACTERS, Indexes.GENRES, Indexes.DESCRIPTIONS]
+        self.fields = [Indexes.CHARACTERS, Indexes.GENRES, Indexes.DESCRIPTION]
 
         self.document_indexes = {
-            Indexes.CHARACTERS: Index_reader(path, Indexes.CHARACTERS).index,
-            Indexes.GENRES: Index_reader(path, Indexes.GENRES).index,
-            Indexes.DESCRIPTIONS: Index_reader(path, Indexes.DESCRIPTIONS).index,
+            Indexes.CHARACTERS: IndexReader(path, Indexes.CHARACTERS).index,
+            Indexes.GENRES: IndexReader(path, Indexes.GENRES).index,
+            Indexes.DESCRIPTION: IndexReader(path, Indexes.DESCRIPTION).index,
         }
 
         self.tiered_index = {}
         for field in self.fields:
             try:
-                self.tiered_index[field] = Index_reader(path, field, Index_types.TIERED).index
+                self.tiered_index[field] = IndexReader(path, field, Index_types.TIERED).index
             except Exception:
                 self.tiered_index[field] = {
                     "first_tier": self.document_indexes[field],
@@ -29,15 +28,15 @@ class SearchEngine:
                 }
 
         self.document_lengths_index = {
-            Indexes.CHARACTERS: Index_reader(path, Indexes.CHARACTERS, Index_types.DOCUMENT_LENGTH).index,
-            Indexes.GENRES: Index_reader(path, Indexes.GENRES, Index_types.DOCUMENT_LENGTH).index,
-            Indexes.DESCRIPTIONS: Index_reader(path, Indexes.DESCRIPTIONS, Index_types.DOCUMENT_LENGTH).index,
+            Indexes.CHARACTERS: IndexReader(path, Indexes.CHARACTERS, Index_types.DOCUMENT_LENGTH).index,
+            Indexes.GENRES: IndexReader(path, Indexes.GENRES, Index_types.DOCUMENT_LENGTH).index,
+            Indexes.DESCRIPTION: IndexReader(path, Indexes.DESCRIPTION, Index_types.DOCUMENT_LENGTH).index,
         }
 
-        self.documents_index = Index_reader(path, Indexes.DOCUMENTS).index
+        self.documents_index = IndexReader(path, Indexes.DOCUMENTS).index
 
         try:
-            self.metadata_index = Index_reader(path, Indexes.DOCUMENTS, Index_types.METADATA).index
+            self.metadata_index = IndexReader(path, Indexes.DOCUMENTS, Index_types.METADATA).index
         except Exception:
             self.metadata_index = {
                 "document_count": len(self.documents_index),
@@ -49,6 +48,12 @@ class SearchEngine:
                     for field in self.fields
                 },
             }
+
+        self.global_df = {}
+        for field in self.fields:
+            self.global_df[field] = {}
+            for term, postings in self.document_indexes[field].items():
+                self.global_df[field][term] = len(postings)
 
     def search(
         self,
@@ -82,13 +87,15 @@ class SearchEngine:
             selected retrieval approach, aggregates the field scores, and returns
             the ranked result list.
         """
+        method = method.lower()
+
         if isinstance(query, str):
             preprocessor = Preprocessor()
             query = preprocessor.preprocess_text(query).split()
         
         scores = {}
 
-        if method.lower() == "unigram":
+        if method == "unigram":
             self.find_scores_with_unigram_model(
                 query,
                 smoothing_method,
@@ -111,6 +118,7 @@ class SearchEngine:
                     query,
                     method,
                     weights,
+                    max_results,
                     scores,
                 )
 
@@ -182,10 +190,11 @@ class SearchEngine:
 
                 scorer = Scorer(
                     tier_index,
-                    self.metadata_index["document_count"]
+                    self.metadata_index["document_count"],
+                    global_df=self.global_df[field]
                 )
                 
-                if method.lower() == "okapibm25":
+                if method == "okapibm25":
                     avg_len = self._get_average_length(field)
 
                     partial_scores = scorer.compute_scores_with_okapi_bm25(
@@ -209,7 +218,7 @@ class SearchEngine:
                    len(field_scores) >= max_results:
                     break
                 
-                scores[field] = field_scores
+            scores[field] = field_scores
 
 
     def find_scores_with_safe_ranking(self, query, method, weights, scores):
@@ -235,10 +244,11 @@ class SearchEngine:
 
             scorer = Scorer(
                 self.document_indexes[field],
-                self.metadata_index["document_count"]
+                self.metadata_index["document_count"],
+                global_df=self.global_df[field]
             )
 
-            if method.lower() == "okapibm25":
+            if method == "okapibm25":
                 avg_len = self._get_average_length(field)
 
                 field_scores = scorer.compute_scores_with_okapi_bm25(
@@ -285,7 +295,7 @@ class SearchEngine:
                 self.metadata_index["document_count"],
             )
 
-            field_scores = scorer.compute_score_with_unigram_model(
+            field_scores = scorer.compute_scores_with_unigram_model(
                 query,
                 smoothing_method,
                 self.document_lengths_index[field],
@@ -306,12 +316,14 @@ class SearchEngine:
 
     def _get_average_length(self, field):
         avg_lengths = self.metadata_index.get("average_document_length", {})
-        if field.value in avg_lengths:
-            return avg_lengths[field.value]
-        if field in avg_lengths:
-            return avg_lengths[field]
-        lengths = self.document_lengths_index[field]
-        return sum(lengths.values()) / len(lengths) if len(lengths) > 0 else 0.0
+
+        key = field.value if hasattr(field, "value") else field
+
+        return avg_lengths.get(
+            key,
+            sum(self.document_lengths_index[field].values()) / len(self.document_lengths_index[field])
+            if len(self.document_lengths_index[field]) > 0 else 0.0
+        )
 
 
 if __name__ == "__main__":
@@ -321,7 +333,7 @@ if __name__ == "__main__":
     weights = {
         Indexes.CHARACTERS: 1,
         Indexes.GENRES: 1,
-        Indexes.DESCRIPTIONS: 1,
+        Indexes.DESCRIPTION: 1,
     }
     result = search_engine.search(query, method, weights)
     print(result)

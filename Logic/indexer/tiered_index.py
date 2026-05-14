@@ -1,9 +1,9 @@
 from Logic.indexer.indexes_enum import Indexes, Index_types
-from Logic.indexer.index_reader import Index_reader
+from Logic.indexer.index_reader import IndexReader
 import json
+import os
 
-
-class Tiered_index:
+class TieredIndex:
     def __init__(self, path="indexes/"):
         """
         Initializes the Tiered_index.
@@ -15,19 +15,19 @@ class Tiered_index:
         """
 
         self.index = {
-            Indexes.CHARACTERS: Index_reader(path, index_name=Indexes.CHARACTERS).index,
-            Indexes.GENRES: Index_reader(path, index_name=Indexes.GENRES).index,
-            Indexes.DESCRIPTIONS: Index_reader(path, index_name=Indexes.DESCRIPTIONS).index,
+            Indexes.CHARACTERS: IndexReader(path, index_name=Indexes.CHARACTERS).index,
+            Indexes.GENRES: IndexReader(path, index_name=Indexes.GENRES).index,
+            Indexes.DESCRIPTION: IndexReader(path, index_name=Indexes.DESCRIPTION).index,
         }
         # TODO: should not be hardcoded!
         # feel free to change the thresholds
         self.tiered_index = { 
-            Indexes.CHARACTERS: self.convert_to_tiered_index(1, 0, Indexes.CHARACTERS),
-            Indexes.DESCRIPTIONS: self.convert_to_tiered_index(12, 6, Indexes.DESCRIPTIONS),
+            Indexes.CHARACTERS: self.convert_to_tiered_index(3, 1, Indexes.CHARACTERS),
+            Indexes.DESCRIPTION: self.convert_to_tiered_index(12, 6, Indexes.DESCRIPTION),
             Indexes.GENRES: self.convert_to_tiered_index(4, 2, Indexes.GENRES)
         }
         self.store_tiered_index(path, Indexes.CHARACTERS)
-        self.store_tiered_index(path, Indexes.DESCRIPTIONS)
+        self.store_tiered_index(path, Indexes.DESCRIPTION)
         self.store_tiered_index(path, Indexes.GENRES)
 
     def convert_to_tiered_index(
@@ -63,22 +63,18 @@ class Tiered_index:
         second_tier = {}
         third_tier = {}
 
-        for term, postings in current_index.items(): 
-
-            first_tier[term] = {}
-            second_tier[term] = {}
-            third_tier[term] = {}
+        for term, postings in current_index.items():
 
             for doc_id, tf in postings.items():
 
                 if tf >= first_tier_threshold:
-                    first_tier[term][doc_id] = tf
+                    first_tier.setdefault(term, {})[doc_id] = tf
 
                 elif tf >= second_tier_threshold:
-                    second_tier[term][doc_id] = tf
+                    second_tier.setdefault(term, {})[doc_id] = tf
 
                 else: 
-                    third_tier[term][doc_id] = tf
+                    third_tier.setdefault(term, {})[doc_id] = tf
 
         return {
             "first_tier": first_tier,
@@ -90,12 +86,12 @@ class Tiered_index:
         """
         Stores the tiered index to a file.
         """
-        path = path + index_name.value + "_" + Index_types.TIERED.value + "_index.json"
+        path = os.path.join(path, index_name.value + "_" + Index_types.TIERED.value + "_index.json")
         with open(path, "w") as file:
             json.dump(self.tiered_index[index_name], file, indent=4)
 
 
 if __name__ == "__main__":
-    tiered = Tiered_index(
+    tiered = TieredIndex(
         path="indexes/"
     )

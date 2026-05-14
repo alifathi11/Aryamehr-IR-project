@@ -5,7 +5,7 @@ class Indexes(Enum):
     DOCUMENTS = 'documents'
     CHARACTERS = 'characters'
     GENRES = 'genres'
-    DESCRIPTIONS = 'description'
+    DESCRIPTION = 'description'
 
 class Index_types(Enum):
     TIERED = 'tiered'

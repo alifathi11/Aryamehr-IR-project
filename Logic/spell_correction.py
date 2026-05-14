@@ -22,9 +22,8 @@ class SpellCorrection:
         save_path : str, optional
             Path to save computed data to.
         """
-        # TODO: should not be hardcoded!
         self.k = 2
-        self.min_freq = 5
+        self.min_freq = 2
         self.similarity_threshold = 0.3
         self.max_candidates = 5
 
@@ -56,6 +55,8 @@ class SpellCorrection:
         set
             A set of k-grams.
         """
+        word = '$' + word + '$'
+        
         if len(word) < self.k:
             return {word}
         
@@ -107,13 +108,18 @@ class SpellCorrection:
         """
         all_k_gram_words = {}
         word_counter = {}
-
+        
         for doc in all_documents:
-            doc = self.preprocessor.preprocess_text(doc)
+            doc = self.preprocessor.preprocess_text(
+                doc,
+                remove_stop_words=False,
+                apply_normalization=False
+            )
 
             words = doc.split()
 
             for word in words: 
+
                 word_counter[word] = word_counter.get(word, 0) + 1
 
                 if word not in all_k_gram_words:
@@ -155,7 +161,6 @@ class SpellCorrection:
         list of str
             5 nearest words.
         """
-        word = word.lower()
         target_k_grams = self.k_gram_word(word)
 
         scored_candidates = []
@@ -193,8 +198,6 @@ class SpellCorrection:
             True: misspelled
             False: correct
         """
-        word = word.lower()
-
         if word not in self.word_counter: 
             return True
         

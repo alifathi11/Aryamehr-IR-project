@@ -87,18 +87,23 @@ class MinHashLSH:
 
         num_rows, num_docs = characteristic_matrix.shape
 
-        signature = np.full((self.num_hashes, num_docs), np.inf)
+        signature = np.full((self.num_hashes, num_docs), np.iinfo(np.int64).max, dtype=np.int64)
 
         for h in range(self.num_hashes):
             perm = np.random.permutation(num_rows)
 
             for doc in range(num_docs):
+
+                if not characteristic_matrix[:, doc].any():
+                    signature[h, doc] = num_rows
+                    continue
+
                 for row_idx in perm:
                     if characteristic_matrix[row_idx, doc] == 1:
                         signature[h, doc] = row_idx
                         break
 
-        return signature.astype(int)
+        return signature
 
     def lsh_buckets(self, signature, bands=10, rows_per_band=10):
         """
@@ -133,7 +138,7 @@ class MinHashLSH:
                 band_slice = tuple(signature[start:end, doc_id])
                 bucket_id = (
                     band,
-                    int(hashlib.md5(str(band_slice).encode()).hexdigest(), 16)
+                    hashlib.md5(np.asarray(band_slice, dtype=np.int64).tobytes()).hexdigest()
                 )
 
                 if bucket_id not in buckets:
@@ -153,6 +158,10 @@ class MinHashLSH:
             A dictionary mapping bucket IDs to lists of document indices.
         """
         num_bands = 25
+
+        if self.num_hashes % num_bands != 0:
+            raise ValueError("Invalid number of hashes and bands")
+
         signature = self.min_hash_signature()
         ans = self.lsh_buckets(signature, num_bands, self.num_hashes//num_bands)
         return ans

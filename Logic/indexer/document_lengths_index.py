@@ -1,6 +1,7 @@
 import json
 from Logic.indexer.indexes_enum import Indexes,Index_types
-from Logic.indexer.index_reader import Index_reader
+from Logic.indexer.index_reader import IndexReader
+import os
 
 class DocumentLengthsIndex:
     def __init__(self, path='indexes/'):
@@ -14,15 +15,15 @@ class DocumentLengthsIndex:
 
         """
 
-        self.documents_index = Index_reader(path, index_name=Indexes.DOCUMENTS).index
+        self.documents_index = IndexReader(path, index_name=Indexes.DOCUMENTS).index
         self.document_length_index = {
             Indexes.CHARACTERS: self.get_documents_length(Indexes.CHARACTERS.value),
             Indexes.GENRES: self.get_documents_length(Indexes.GENRES.value),
-            Indexes.DESCRIPTIONS: self.get_documents_length(Indexes.DESCRIPTIONS.value)
+            Indexes.DESCRIPTION: self.get_documents_length(Indexes.DESCRIPTION.value)
         }
         self.store_document_lengths_index(path, Indexes.CHARACTERS)
         self.store_document_lengths_index(path, Indexes.GENRES)
-        self.store_document_lengths_index(path, Indexes.DESCRIPTIONS)
+        self.store_document_lengths_index(path, Indexes.DESCRIPTION)
 
     def get_documents_length(self, where):
         """
@@ -59,7 +60,7 @@ class DocumentLengthsIndex:
         index_name : Indexes
             The name of the index to store.
         """
-        path = path + index_name.value + '_' + Index_types.DOCUMENT_LENGTH.value + '_index.json'
+        path = os.path.join(path, index_name.value + '_' + Index_types.DOCUMENT_LENGTH.value + '_index.json')
         with open(path, 'w') as file:
             json.dump(self.document_length_index[index_name], file, indent=4)
     

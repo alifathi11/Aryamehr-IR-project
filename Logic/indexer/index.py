@@ -17,7 +17,7 @@ class Index:
             Indexes.DOCUMENTS.value: self.index_documents(),
             Indexes.CHARACTERS.value: self.index_characters(),
             Indexes.GENRES.value: self.index_genres(),
-            Indexes.DESCRIPTIONS.value: self.index_descriptions(),
+            Indexes.DESCRIPTION.value: self.index_description(),
         }
 
     def index_documents(self):
@@ -90,7 +90,7 @@ class Index:
         return index
 
 
-    def index_descriptions(self):
+    def index_description(self):
         """
         Index the documents based on the descriptions.
 
@@ -107,9 +107,9 @@ class Index:
 
             doc_id = doc["id"]
 
-            descriptions = doc.get(Indexes.DESCRIPTIONS.value, [])
+            description = doc.get(Indexes.DESCRIPTION.value, "").split()
 
-            for term in descriptions:
+            for term in description:
 
                 postings = index.get(term, {})
 
@@ -137,7 +137,7 @@ class Index:
         """
 
         try:
-            return list(self.index[index_type].get(word, {}.keys()))
+            return list(self.index[index_type].get(word, {}).keys())
 
         except:
             return []
@@ -153,12 +153,15 @@ class Index:
         """
         doc_id = document["id"]
 
+        if doc_id in self.index[Indexes.DOCUMENTS.value]:
+            raise ValueError("Document already exists")
+
         self.index[Indexes.DOCUMENTS.value][doc_id] = document
 
         fields = {
             Indexes.CHARACTERS.value: document.get(Indexes.CHARACTERS.value, []),
             Indexes.GENRES.value: document.get(Indexes.GENRES.value, []),
-            Indexes.DESCRIPTIONS.value: document.get(Indexes.DESCRIPTIONS.value, []),
+            Indexes.DESCRIPTION.value: document.get(Indexes.DESCRIPTION.value, []),
         }
 
         for index_name, terms in fields.items():
@@ -185,7 +188,7 @@ class Index:
         fields = {
             Indexes.CHARACTERS.value: document.get(Indexes.CHARACTERS.value, []),
             Indexes.GENRES.value: document.get(Indexes.GENRES.value, []),
-            Indexes.DESCRIPTIONS.value: document.get(Indexes.DESCRIPTIONS.value, []),
+            Indexes.DESCRIPTION.value: document.get(Indexes.DESCRIPTION.value, []),
         }
 
         for index_name, terms in fields.items():
@@ -259,9 +262,9 @@ class Index:
             print('Add is incorrect, crime')
             return
 
-        self.check_if_key_exists(index_before_add, Indexes.DESCRIPTIONS.value, 'good')
+        self.check_if_key_exists(index_before_add, Indexes.DESCRIPTION.value, 'good')
 
-        if (set(index_after_add[Indexes.DESCRIPTIONS.value]['good']).difference(set(index_before_add[Indexes.DESCRIPTIONS.value]['good']))
+        if (set(index_after_add[Indexes.DESCRIPTION.value]['good']).difference(set(index_before_add[Indexes.DESCRIPTION.value]['good']))
                 != {dummy_document['id']}):
             print('Add is incorrect, good')
             return
@@ -272,7 +275,7 @@ class Index:
         self.delete_dummy_keys(index_before_add, Indexes.CHARACTERS.value, 'robin')
         self.delete_dummy_keys(index_before_add, Indexes.GENRES.value, 'mystery')
         self.delete_dummy_keys(index_before_add, Indexes.GENRES.value, 'crime')
-        self.delete_dummy_keys(index_before_add, Indexes.DESCRIPTIONS.value, 'good')
+        self.delete_dummy_keys(index_before_add, Indexes.DESCRIPTION.value, 'good')
 
         print('Add is correct')
 
@@ -411,7 +414,7 @@ def main():
     indexer.check_add_remove_is_correct()
 
     indexer.check_if_indexing_is_good(
-        Indexes.DESCRIPTIONS.value,
+        Indexes.DESCRIPTION.value,
         "good"
     )
 
@@ -420,13 +423,13 @@ def main():
     indexer.store_index(path=indexes_dir, index_name=Indexes.DOCUMENTS.value)
     indexer.store_index(path=indexes_dir, index_name=Indexes.CHARACTERS.value)
     indexer.store_index(path=indexes_dir, index_name=Indexes.GENRES.value)
-    indexer.store_index(path=indexes_dir, index_name=Indexes.DESCRIPTIONS.value)
+    indexer.store_index(path=indexes_dir, index_name=Indexes.DESCRIPTION.value)
 
     loaded = indexer.load_index(os.path.join(indexes_dir, "description_index.json"))
 
     print(
         indexer.check_if_index_loaded_correctly(
-            Indexes.DESCRIPTIONS.value,
+            Indexes.DESCRIPTION.value,
             loaded
         )
     )

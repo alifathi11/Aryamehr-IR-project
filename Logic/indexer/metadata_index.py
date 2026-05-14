@@ -1,8 +1,9 @@
-from Logic.indexer.index_reader import Index_reader
+from Logic.indexer.index_reader import IndexReader
 from Logic.indexer.indexes_enum import Indexes, Index_types
 import json
+import os
 
-class Metadata_index:
+class MetadataIndex:
     def __init__(self, path='indexes/'):
         """
         Initializes the Metadata_index.
@@ -20,7 +21,7 @@ class Metadata_index:
         """
         Reads the documents.
         """
-        return Index_reader(
+        return IndexReader(
             path=path,
             index_name=Indexes.DOCUMENTS
         ).index
@@ -33,7 +34,7 @@ class Metadata_index:
         metadata_index['average_document_length'] = {
             'characters': self.get_average_document_field_length('characters'),
             'genres': self.get_average_document_field_length('genres'),
-            'descriptions': self.get_average_document_field_length('description')
+            'description': self.get_average_document_field_length('description')
         }
         metadata_index['document_count'] = len(self.documents)
 
@@ -56,6 +57,9 @@ class Metadata_index:
             field_index = doc.get(where, [])
             total_length += len(field_index)
 
+        if doc_count == 0:
+            return 0
+
         return total_length / doc_count
 
     def store_metadata_index(self, path):
@@ -67,10 +71,10 @@ class Metadata_index:
         path : str
             The path to the directory where the indexes are stored.
         """
-        path = path + Indexes.DOCUMENTS.value + '_' + Index_types.METADATA.value + '_index.json'
+        path = os.path.join(path, Indexes.DOCUMENTS.value + '_' + Index_types.METADATA.value + '_index.json')
         with open(path, 'w') as file:
             json.dump(self.metadata_index, file, indent=4)
 
     
 if __name__ == "__main__":
-    meta_index = Metadata_index('indexes/')
+    meta_index = MetadataIndex('indexes/')

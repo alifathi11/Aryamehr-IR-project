@@ -2,8 +2,12 @@ import re
 import string
 import json
 import csv
+from nltk.stem import PorterStemmer
+from nltk.stem import WordNetLemmatizer
 
-
+# import nltk
+# nltk.download('wordnet')
+# nltk.download('omw-1.4')
 
 class Preprocessor:
     def __init__(self, custom_stopwords_path='./stopwords.txt'):
@@ -14,6 +18,9 @@ class Preprocessor:
         self.url_pattern = re.compile(pattern=pattern, flags=re.IGNORECASE)
 
         self.punctuation_table = str.maketrans('', '', string.punctuation)
+
+        self.stemmer = PorterStemmer()
+        self.lemmatizer = WordNetLemmatizer()
 
         self.stopwords = set()
 
@@ -41,28 +48,25 @@ class Preprocessor:
 
         text = text.translate(self.punctuation_table)
 
-        text = re.sub(r'\d+', ' ', text) # TODO: do we really need to remove digits?!
-
         text = re.sub(r'\s+', ' ', text).strip()
 
         tokens = text.split()
 
         if remove_stop_words:
-            tokens = self.remove_stopwords(text)
+            tokens = self.remove_stopwords(tokens)
 
         if apply_normalization:
             tokens = [self.normalize(token) for token in tokens]
 
         return ' '.join(tokens)
 
-    def remove_stopwords(self, text: str) -> list:
+    def remove_stopwords(self, tokens: list[str]) -> list[str]:
         """
         Remove stopwords from the text.
         """
-        words = text.split()
-        return [word for word in words if word not in self.stopwords]
+        return [token for token in tokens if token not in self.stopwords]
         
-    def normalize(self, word: str) -> str:
+    def normalize(self, word: str, lemmatize=True, stem=True) -> str:
         """
         Normalize the text by stemming, lemmatization, etc.
 
@@ -76,14 +80,10 @@ class Preprocessor:
         str
             The normalized word.
         """
-        # TODO: do real normalization! (lemmatization and stemming)
-
-        suffixes = ['ing', 'edly', 'ed', 'ly', 'es', 's']
-
-        for suffix in suffixes:
-            if word.endswith(suffix) and len(word) > len(suffix) + 2: 
-                return word[:-len(suffix)]
-            
+        if lemmatize:
+            word = self.lemmatizer.lemmatize(word)
+        if stem:
+            word = self.stemmer.stem(word)
         return word
         
 
@@ -109,16 +109,22 @@ def preprocess_docs(docs: list):
     """
     preprocessor = Preprocessor()
 
-    fields = ['title', 'description', 'author']
+    fields = [
+        'title',
+        'description',
+        'author',
+        'genres',
+        'characters'
+    ]
 
     for doc in docs:
         for field in fields:
             if field in doc: 
                 if isinstance(doc[field], str):
-                    doc[field] = preprocessor.preprocess_text(doc[field]).split()
+                    doc[field] = preprocessor.preprocess_text(doc[field])
                 elif isinstance(doc[field], list):
                     doc[field] = [
-                        preprocessor.preprocess_text(item).split()
+                        preprocessor.preprocess_text(item)
                         for item in doc[field]
                         if isinstance(item, str)
                     ]

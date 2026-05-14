@@ -4,7 +4,7 @@ from collections import Counter
 
 
 class Scorer:
-    def __init__(self, index, number_of_documents):
+    def __init__(self, index, number_of_documents, global_df=None):
         """
         Initializes the Scorer.
 
@@ -20,14 +20,13 @@ class Scorer:
         self.N = max(int(number_of_documents), 1)
         self._collection_frequencies = None
         self._collection_length = None
+        self.global_df = global_df
 
     def get_list_of_documents(self, query):
         """
         Returns a list of documents that contain at least one of the terms in the query.
         """
-        if isinstance(query, str):
-            preprocessor = Preprocessor()
-            preprocessor.preprocess_text(query).split()
+        query = self._normalize_query(query)
 
         docs = set()
 
@@ -44,7 +43,10 @@ class Scorer:
         if term in self.idf:
             return self.idf[term]
         
-        df = len(self.index.get(term, {}))
+        if self.global_df is not None:
+            df = self.global_df.get(term, 0)
+        else:
+            df = len(self.index.get(term, {}))
 
         if df == 0:
             val = 0.0
@@ -64,11 +66,14 @@ class Scorer:
         """
         Compute scores with vector space model.
         """
-        if isinstance(query, str):
-            preprocessor = Preprocessor()
-            preprocessor.preprocess_text(query).split()
+        query = self._normalize_query(query)
 
-        doc_method, query_method = method.split(".")
+        parts = method.split(".")
+        if len(parts) != 2 or len(parts[0]) != 3 or len(parts[1]) != 3:
+            raise ValueError(f"Invalid SMART notation: {method}")
+
+        doc_method = parts[0]
+        query_method = parts[1]
 
         query_tfs = self.get_query_tfs(query)
         docs = self.get_list_of_documents(query)
@@ -93,7 +98,7 @@ class Scorer:
         """
         Returns the Vector Space Model score of a document for a query.
         """
-        terms = list(set(query))
+        terms = sorted(set(query))
 
         doc_weights = []
         query_weights = []
@@ -130,9 +135,7 @@ class Scorer:
         """
         Compute scores with Okapi BM25.
         """
-        if isinstance(query, str):
-            preprocessor = Preprocessor()
-            preprocessor.preprocess_text(query).split()
+        query = self._normalize_query(query)
 
         docs = self.get_list_of_documents(query)
 
@@ -162,14 +165,20 @@ class Scorer:
 
         score = 0.0
 
-        for term in query:
+        query_tfs = Counter(query)
+
+        for term, _ in query_tfs.items():
             tf = self.index.get(term, {}).get(document_id, 0)
 
             if tf == 0:
                 continue
 
-            df = len(self.index.get(term, {}))
-            idf = math.log((self.N - df + 0.5) / (df + 0.5) + 1)
+            if self.global_df is not None:
+                df = self.global_df.get(term, 0)
+            else:
+                df = len(self.index.get(term, {}))
+
+            idf = self._bm25_idf(df)
 
             numerator = tf * (k1 + 1)
             denominator = tf + k1 * (1 - b + b * (dl / avgdl))
@@ -184,9 +193,7 @@ class Scorer:
         """
         Calculates scores for each document based on the unigram model.
         """
-        if isinstance(query, str):
-            preprocessor = Preprocessor()
-            preprocessor.preprocess_text(query).split()
+        query = self._normalize_query(query)
 
         docs = self.get_list_of_documents(query)
         
@@ -262,7 +269,7 @@ class Scorer:
         elif mode == "l":
             return 1.0 + math.log10(tf)
         
-        return float(tf)
+        raise ValueError(f"Unsupported tf mode: {mode}")
 
     def _cosine_normalize(self, weights):
         """
@@ -293,3 +300,19 @@ class Scorer:
 
         self._collection_frequencies = cf
         self._collection_length = total 
+
+    def _normalize_query(self, query):
+        if isinstance(query, str):
+            preprocessor = Preprocessor()
+            query = preprocessor.preprocess_text(query).split()
+
+        return query
+
+    def _bm25_idf(self, df):
+        numerator = self.N - df + 0.5
+        denominator = df + 0.5
+
+        if numerator <= 0:
+            return 0.0
+
+        return math.log(1 + (numerator / denominator))

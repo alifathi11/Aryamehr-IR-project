@@ -3,9 +3,9 @@ from Logic.Search import SearchEngine
 from Logic.spell_correction import SpellCorrection
 from Logic.indexer.indexes_enum import Indexes
 import json
+from typing import Any
 
 data_path = 'crawled.json'
-# data_path = './Logic/LSHFakeData.json'
 with open(data_path, 'r') as f:
     data = json.load(f)
 
@@ -15,9 +15,13 @@ for book in data:
 
 # Build corpus for spell correction once
 corpus = [
-    (book.get('description') if isinstance(book.get('description'), str) else "") + " " +
-    ' '.join(book.get('genres', [])) + " " +
-    ' '.join(book.get('characters', []))
+    (
+        (book.get('description') if isinstance(book.get('description'), str) else "")
+        + " "
+        + ' '.join(map(str, book.get('genres', [])))
+        + " "
+        + ' '.join(map(str, book.get('characters', [])))
+    )
     for book in data
 ]
 
@@ -40,7 +44,7 @@ def search(
     query: str,
     max_result_count: int,
     method: str = "ltn.lnn",
-    weights: list = [0.3, 0.3, 0.4],
+    weights: list | None = None,
     should_print: bool = False,
     preferred_genre: str = None,
 ):
@@ -67,17 +71,21 @@ def search(
     list
     Retrieved documents with snippet
     """
+
+    if weights is None:
+        weights = [0.3, 0.3, 0.4]
+
     weights = {
         Indexes.CHARACTERS: weights[0],
         Indexes.GENRES: weights[1],
-        Indexes.DESCRIPTIONS: weights[2],
+        Indexes.DESCRIPTION: weights[2],
     }
     return search_engine.search(
         query, method, weights, max_results=max_result_count, safe_ranking=True
     )
 
 
-def get_book_by_id(id: str, books_dataset: List[Dict[str, str]]) -> Dict[str, str]:
+def get_book_by_id(id: str, books_dataset: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
     """
     Get book by its id
 
@@ -94,9 +102,5 @@ def get_book_by_id(id: str, books_dataset: List[Dict[str, str]]) -> Dict[str, st
     dict
         The book with the given id
     """
-    result = books_dataset.get(
-        id
-    )
 
-
-    return result
+    return books_dataset.get(id)
