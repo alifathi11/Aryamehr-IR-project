@@ -19,8 +19,7 @@ class TieredIndex:
             Indexes.GENRES: IndexReader(path, index_name=Indexes.GENRES).index,
             Indexes.DESCRIPTION: IndexReader(path, index_name=Indexes.DESCRIPTION).index,
         }
-        # TODO: should not be hardcoded!
-        # feel free to change the thresholds
+
         self.tiered_index = { 
             Indexes.CHARACTERS: self.convert_to_tiered_index(3, 1, Indexes.CHARACTERS),
             Indexes.DESCRIPTION: self.convert_to_tiered_index(12, 6, Indexes.DESCRIPTION),

@@ -23,7 +23,7 @@ class SpellCorrection:
             Path to save computed data to.
         """
         self.k = 2
-        self.min_freq = 2
+        self.min_freq = 3
         self.similarity_threshold = 0.3
         self.max_candidates = 5
 
