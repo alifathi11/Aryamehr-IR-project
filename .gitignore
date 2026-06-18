@@ -164,3 +164,6 @@ cython_debug/
 *.rar
 *.json
 *.txt
+
+# models 
+scratch_word2vec_answer.model
